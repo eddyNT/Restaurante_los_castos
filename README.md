@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema Web Restaurante
 
-## Getting Started
+Pedidos en línea, panel de trabajadores y administración total para un restaurante. Arranca con un local y está preparado para varias sucursales.
 
-First, run the development server:
+**Stack:** Next.js 15 + TypeScript + Tailwind · Prisma · MariaDB/MySQL (local) o PostgreSQL (hosting).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Probar en tu PC (localhost)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Requisitos: Node.js 20 o superior y XAMPP (MySQL/MariaDB).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Abre el **XAMPP Control Panel** y presiona **Start** en MySQL.
+2. En una terminal, dentro de esta carpeta:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   npx prisma migrate dev     # crea la base "restaurante" y sus tablas
+   npm run db:seed            # carga menú, mesas y usuarios de ejemplo
+   npm run dev                # http://localhost:3000
+   ```
 
-## Learn More
+3. Cuentas de prueba:
 
-To learn more about Next.js, take a look at the following resources:
+   | Rol | Correo | Contraseña |
+   |---|---|---|
+   | Super Admin | superadmin@restaurante.local | Admin123! |
+   | Admin / Trabajador | trabajador@restaurante.local | Trabajo123! |
+   | Cliente | cliente@demo.com | Cliente123! |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   Cambia estas contraseñas antes de publicar el sistema.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Para ver las tablas: phpMyAdmin (http://localhost/phpmyadmin) o `npm run db:studio`.
 
-## Deploy on Vercel
+### Probar desde el celular en la misma red Wi-Fi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`npm run dev -- -H 0.0.0.0` y abre `http://IP-DE-TU-PC:3000` en el celular (la IP sale con `ipconfig`). Así se prueban los QR de mesa. El botón «Descargar app» (instalar como PWA) necesita HTTPS, así que funciona en `localhost` o ya en el hosting.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Qué hace cada rol
+
+- **Cliente** (`/`, `/menu`, `/carrito`, `/checkout`, `/pedidos`, `/perfil`): menú por categorías, carrito, pedido para recoger o delivery, pago en efectivo o por QR con subida de comprobante y seguimiento del pedido.
+- **Invitado en mesa** (`/m/<token>`): escanea el QR de la mesa y pide sin registrarse.
+- **Admin** (`/admin`): tablero de pedidos que se actualiza solo y suena con cada pedido nuevo, verificación de pagos QR, estado de mesas y platos agotados.
+- **Super Admin** (`/superadmin`): ventas, productos y precios, categorías, clientes con exportación a CSV, trabajadores, **QR de pago**, datos del local y horarios, y bitácora de cambios.
+
+## Pasar a un hosting
+
+Opción recomendada: **Vercel + Neon (PostgreSQL) + Cloudinary**.
+
+1. En `prisma/schema.prisma`, cambia `provider = "mysql"` por `provider = "postgresql"`, borra la carpeta `prisma/migrations` y genera la migración inicial contra la base nueva (`npx prisma migrate dev --name init`).
+2. Las imágenes se guardan hoy en la carpeta `uploads/`, que **no persiste en Vercel**. Antes de publicar, cambia `src/lib/upload.ts` para subir a Cloudinary o Cloudflare R2. Solo hay que cambiar ese archivo.
+3. Variables de entorno en el hosting: `DATABASE_URL` y `AUTH_SECRET` (una clave nueva y larga).
+4. Ejecuta `npx prisma migrate deploy` y `npm run db:seed` una vez contra la base de producción.
+
+Alternativa sin cambiar código: un **VPS** (por ejemplo Hostinger o DigitalOcean) con Node, MySQL y PM2. Ahí la carpeta `uploads/` sí persiste. Pon Nginx con HTTPS delante.
+
+## Sucursales
+
+Todas las tablas operativas ya tienen `branchId`. Hoy el sitio usa la primera sucursal activa (`getMainBranch` en `src/lib/settings.ts`). Para abrir otra sucursal: crea el registro, asígnale trabajadores y agrega un selector de sucursal en el checkout.
