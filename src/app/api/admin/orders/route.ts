@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSession, branchScope, isStaff } from "@/lib/auth";
+import { getActiveSession, branchScope, isStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Pedidos activos para el tablero. El panel consulta esta ruta cada pocos segundos.
 export async function GET() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session || !isStaff(session)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const since = new Date(Date.now() - 1000 * 60 * 60 * 12);
@@ -31,7 +31,8 @@ export async function GET() {
       customerName: o.customerName,
       table: o.table?.number ?? null,
       createdAt: o.createdAt.toISOString(),
-      items: o.items.map((i) => ({ name: i.productName, quantity: i.quantity, notes: i.notes })),
+      scheduledFor: o.scheduledFor?.toISOString() ?? null,
+      items: o.items.map((i) => ({ name: i.productName, quantity: i.quantity, notes: i.notes, removed: i.removed })),
     })),
   );
 }

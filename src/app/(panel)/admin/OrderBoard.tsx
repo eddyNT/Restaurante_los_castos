@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { OrderStatus } from "@prisma/client";
 import { setOrderStatus, verifyPayment } from "@/app/actions/staff";
-import { bs, ORDER_TYPE_LABEL } from "@/lib/format";
+import { bs, ORDER_TYPE_LABEL, scheduleLabel } from "@/lib/format";
 import { PaymentBadge } from "@/components/StatusBadge";
 
 type BoardOrder = {
@@ -18,7 +18,8 @@ type BoardOrder = {
   customerName: string;
   table: string | null;
   createdAt: string;
-  items: { name: string; quantity: number; notes: string | null }[];
+  scheduledFor: string | null;
+  items: { name: string; quantity: number; notes: string | null; removed: string | null }[];
 };
 
 const COLUMNS: { title: string; statuses: OrderStatus[] }[] = [
@@ -112,10 +113,16 @@ export function OrderBoard() {
                       <p className="text-sm text-muted">
                         {o.table ? `Mesa ${o.table}` : ORDER_TYPE_LABEL[o.type]} · {o.customerName}
                       </p>
+                      {o.scheduledFor && (
+                        <p className="mt-1 inline-block rounded-full bg-accent-soft px-2.5 py-0.5 text-sm font-extrabold text-amber-900">
+                          🕐 {scheduleLabel(o.type, new Date(o.scheduledFor))}
+                        </p>
+                      )}
                       <ul className="my-2 text-sm">
                         {o.items.map((i, idx) => (
                           <li key={idx}>
                             <b>{i.quantity}×</b> {i.name}
+                            {i.removed && <span className="block pl-5 text-xs font-extrabold uppercase text-red-700">Sin: {i.removed}</span>}
                             {i.notes && <span className="block pl-5 text-xs text-amber-800">{i.notes}</span>}
                           </li>
                         ))}

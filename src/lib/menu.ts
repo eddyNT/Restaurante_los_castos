@@ -1,6 +1,16 @@
 import { db } from "./db";
 import { toNumber } from "./format";
 
+export type Ingredient = { name: string; removable: boolean };
+
+/** Lee la columna JSON de ingredientes; cualquier dato mal formado se ignora. */
+export function parseIngredients(json: unknown): Ingredient[] {
+  if (!Array.isArray(json)) return [];
+  return json
+    .filter((i): i is { name: string; removable?: unknown } => typeof i?.name === "string" && i.name.trim() !== "")
+    .map((i) => ({ name: i.name.trim(), removable: i.removable !== false }));
+}
+
 /** Productos visibles con su precio efectivo y disponibilidad en una sucursal. */
 export async function getMenu(branchId: string) {
   const categories = await db.category.findMany({
@@ -32,6 +42,7 @@ type ProductWithBranch = {
   imageUrl: string | null;
   basePrice: { toString(): string };
   isFeatured: boolean;
+  ingredients: unknown;
   branchProducts: { priceOverride: { toString(): string } | null; isAvailable: boolean }[];
 };
 
@@ -44,6 +55,7 @@ export function toMenuProduct(p: ProductWithBranch) {
     description: p.description,
     imageUrl: p.imageUrl,
     isFeatured: p.isFeatured,
+    ingredients: parseIngredients(p.ingredients),
     price: toNumber(bp?.priceOverride?.toString() ?? p.basePrice.toString()),
     isAvailable: bp ? bp.isAvailable : true,
   };

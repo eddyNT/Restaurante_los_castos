@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getMainBranch, getSettings } from "@/lib/settings";
-import { openStatus } from "@/lib/hours";
+import { openStatus, pickupSlots } from "@/lib/hours";
 import { CheckoutForm } from "./CheckoutForm";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ export default async function CheckoutPage() {
         deliveryFee={Number(settings.deliveryFee) || 0}
         qrAvailable={qrAvailable}
         status={openStatus(branch.hours)}
+        slotDay={pickupSlots(branch.hours, Number(settings.prepMinutes) || 0)}
       />
     </div>
   );

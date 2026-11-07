@@ -1,12 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { canViewOrder } from "@/lib/orders";
-import { bs, formatDate, ORDER_STATUS_LABEL, ORDER_TYPE_LABEL } from "@/lib/format";
+import { bs, formatDate, formatSchedule, ORDER_STATUS_LABEL, ORDER_TYPE_LABEL, scheduleLabel, whatsappLink } from "@/lib/format";
 import { OrderStatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { ProofForm } from "./ProofForm";
+import { OrderShare } from "./OrderShare";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,7 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
     include: {
       items: true,
       table: true,
+      branch: { select: { whatsapp: true } },
       payments: { orderBy: { createdAt: "desc" }, include: { paymentQr: true } },
     },
   });
@@ -28,6 +32,23 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
   const qr = qrPayment?.paymentQr ?? null;
   const stepIndex = STEPS.indexOf(order.status === "OUT_FOR_DELIVERY" ? "READY" : order.status);
   const needsPayment = order.paymentMethod === "QR" && order.paymentStatus !== "VERIFIED" && order.status !== "CANCELLED";
+
+  // Datos del pedido para el QR y el mensaje de WhatsApp; el enlace abre el pedido en el panel del local
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
+  const summary = [
+    `PEDIDO ${order.code}`,
+    `Cliente: ${order.customerName}`,
+    `Celular: ${order.customerPhone}`,
+    `Tipo: ${ORDER_TYPE_LABEL[order.type]}${order.scheduledFor ? ` · ${scheduleLabel(order.type, order.scheduledFor)}` : ""}`,
+    ...(order.deliveryAddress ? [`Dirección: ${order.deliveryAddress}`] : []),
+    ...order.items.map((i) => `${i.quantity}x ${i.productName}${i.removed ? ` (sin ${i.removed.toLowerCase()})` : ""}${i.notes ? ` - ${i.notes}` : ""}`),
+    ...(order.notes ? [`Nota: ${order.notes}`] : []),
+    `Total: ${bs(order.total)} · ${order.paymentMethod === "QR" ? "Pago QR" : "Efectivo"}`,
+    `${origin}/admin/pedidos/${order.code}`,
+  ].join("\n");
+  const qrDataUrl = await QRCode.toDataURL(summary, { width: 400, margin: 1, errorCorrectionLevel: "M" });
+  const whatsapp = order.branch.whatsapp;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -40,6 +61,11 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
             {formatDate(order.createdAt)} · {ORDER_TYPE_LABEL[order.type]}
             {order.table ? ` · Mesa ${order.table.number}` : ""}
           </p>
+          {order.scheduledFor && (
+            <p className="mt-1 font-semibold">
+              🕐 {order.type === "DINE_IN" ? "Te esperamos:" : "Pasa a recoger:"} {formatSchedule(order.scheduledFor)}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <OrderStatusBadge status={order.status} />
@@ -58,6 +84,15 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
             </li>
           ))}
         </ol>
+      )}
+
+      {order.status !== "CANCELLED" && (
+        <OrderShare
+          code={order.code}
+          qrDataUrl={qrDataUrl}
+          whatsappUrl={whatsapp ? whatsappLink(whatsapp, summary) : null}
+          whatsappNumber={whatsapp}
+        />
       )}
 
       {needsPayment && (
@@ -105,6 +140,7 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
             <li key={i.id} className="flex justify-between gap-3 py-2">
               <div>
                 <p>{i.quantity} × {i.productName}</p>
+                {i.removed && <p className="text-sm font-bold text-brand">Sin {i.removed.toLowerCase()}</p>}
                 {i.notes && <p className="text-sm text-muted">{i.notes}</p>}
               </div>
               <span className="tabular-nums">{bs(i.lineTotal)}</span>

@@ -1,0 +1,285 @@
+// Esquema del Sistema Web de Restaurante (generado desde prisma/schema.prisma)
+// Pegar en https://dbdiagram.io para ver el diagrama. Base de datos: PostgreSQL (Neon).
+
+Table branches {
+  id text [pk, note: 'cuid']
+  name text [not null]
+  slug text [unique, not null]
+  address text [not null]
+  phone text
+  whatsapp text
+  email text
+  mapUrl varchar(500)
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+Table branch_hours {
+  id text [pk, note: 'cuid']
+  branchId text [not null]
+  dayOfWeek int [not null]
+  opensAt text [not null]
+  closesAt text [not null]
+  isClosed boolean [not null, default: false]
+
+  indexes {
+      (branchId,dayOfWeek) [unique]
+  }
+}
+
+Table roles {
+  id text [pk, note: 'cuid']
+  code text [unique, not null]
+  name text [not null]
+}
+
+Table users {
+  id text [pk, note: 'cuid']
+  roleId text [not null]
+  email text [unique, not null]
+  passwordHash text [not null]
+  fullName text [not null]
+  phone text
+  isActive boolean [not null, default: true]
+  lastLoginAt timestamp
+  deletedAt timestamp
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+Table user_branches {
+  userId text [not null]
+  branchId text [not null]
+
+  indexes {
+      (userId,branchId) [pk]
+  }
+}
+
+Table addresses {
+  id text [pk, note: 'cuid']
+  userId text [not null]
+  label text [not null]
+  line text [not null]
+  reference text
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table categories {
+  id text [pk, note: 'cuid']
+  name text [not null]
+  slug text [unique, not null]
+  sortOrder int [not null, default: 0]
+  isVisible boolean [not null, default: true]
+}
+
+Table products {
+  id text [pk, note: 'cuid']
+  categoryId text [not null]
+  name text [not null]
+  slug text [unique, not null]
+  description text
+  imageUrl varchar(500)
+  basePrice decimal(10,2) [not null]
+  isVisible boolean [not null, default: true]
+  isFeatured boolean [not null, default: false]
+  ingredients jsonb
+  deletedAt timestamp
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+Table branch_products {
+  branchId text [not null]
+  productId text [not null]
+  priceOverride decimal(10,2)
+  isAvailable boolean [not null, default: true]
+
+  indexes {
+      (branchId,productId) [pk]
+  }
+}
+
+Table carts {
+  id text [pk, note: 'cuid']
+  userId text [unique, not null]
+  branchId text [not null]
+  updatedAt timestamp [not null]
+}
+
+Table cart_items {
+  id text [pk, note: 'cuid']
+  cartId text [not null]
+  productId text [not null]
+  quantity int [not null]
+  notes text
+
+  indexes {
+      (cartId,productId) [unique]
+  }
+}
+
+Table tables {
+  id text [pk, note: 'cuid']
+  branchId text [not null]
+  number text [not null]
+  capacity int [not null, default: 4]
+  status TableStatus [not null, default: 'FREE']
+  qrToken text [unique, not null]
+
+  indexes {
+      (branchId,number) [unique]
+  }
+}
+
+Table orders {
+  id text [pk, note: 'cuid']
+  code text [unique, not null]
+  branchId text [not null]
+  userId text
+  tableId text
+  type OrderType [not null]
+  status OrderStatus [not null, default: 'PENDING']
+  paymentMethod PaymentMethod [not null]
+  paymentStatus PaymentStatus [not null, default: 'PENDING']
+  subtotal decimal(10,2) [not null]
+  deliveryFee decimal(10,2) [not null, default: 0]
+  total decimal(10,2) [not null]
+  customerName text [not null]
+  customerPhone text [not null]
+  deliveryAddress varchar(500)
+  notes varchar(500)
+  scheduledFor timestamp
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  indexes {
+      (branchId,status)
+      (userId)
+  }
+}
+
+Table order_items {
+  id text [pk, note: 'cuid']
+  orderId text [not null]
+  productId text [not null]
+  productName text [not null]
+  unitPrice decimal(10,2) [not null]
+  quantity int [not null]
+  lineTotal decimal(10,2) [not null]
+  notes text
+  removed varchar(300)
+}
+
+Table order_status_history {
+  id text [pk, note: 'cuid']
+  orderId text [not null]
+  status OrderStatus [not null]
+  changedBy text
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table payment_qrs {
+  id text [pk, note: 'cuid']
+  branchId text [not null]
+  bankName text [not null]
+  accountHolder text [not null]
+  imageUrl varchar(500) [not null]
+  isActive boolean [not null, default: false]
+  uploadedBy text [not null]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table payments {
+  id text [pk, note: 'cuid']
+  orderId text [not null]
+  paymentQrId text
+  method PaymentMethod [not null]
+  amount decimal(10,2) [not null]
+  status PaymentStatus [not null, default: 'PENDING']
+  proofUrl varchar(500)
+  verifiedBy text
+  verifiedAt timestamp
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table settings {
+  key text [pk]
+  value text [not null]
+}
+
+Table audit_logs {
+  id text [pk, note: 'cuid']
+  userId text
+  action text [not null]
+  entity text [not null]
+  entityId text
+  changes jsonb
+  createdAt timestamp [not null, default: `now()`]
+
+  indexes {
+      (entity,entityId)
+  }
+}
+
+Enum TableStatus {
+  FREE
+  OCCUPIED
+  RESERVED
+}
+
+Enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+Enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+Enum PaymentMethod {
+  CASH
+  QR
+}
+
+Enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+// Relaciones (llaves foráneas): muchos (>) a uno
+Ref: branch_hours.branchId > branches.id
+Ref: users.roleId > roles.id
+Ref: user_branches.userId > users.id
+Ref: user_branches.branchId > branches.id
+Ref: addresses.userId > users.id
+Ref: products.categoryId > categories.id
+Ref: branch_products.branchId > branches.id
+Ref: branch_products.productId > products.id
+Ref: carts.userId > users.id
+Ref: carts.branchId > branches.id
+Ref: cart_items.cartId > carts.id
+Ref: cart_items.productId > products.id
+Ref: tables.branchId > branches.id
+Ref: orders.branchId > branches.id
+Ref: orders.userId > users.id
+Ref: orders.tableId > tables.id
+Ref: order_items.orderId > orders.id
+Ref: order_items.productId > products.id
+Ref: order_status_history.orderId > orders.id
+Ref: order_status_history.changedBy > users.id
+Ref: payment_qrs.branchId > branches.id
+Ref: payment_qrs.uploadedBy > users.id
+Ref: payments.orderId > orders.id
+Ref: payments.paymentQrId > payment_qrs.id
+Ref: payments.verifiedBy > users.id
+Ref: audit_logs.userId > users.id

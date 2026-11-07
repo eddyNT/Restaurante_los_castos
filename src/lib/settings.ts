@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS = {
   restaurantName: "Mi Restaurante",
   tagline: "Comida casera hecha al momento",
   deliveryFee: "10",
+  prepMinutes: "20",
   facebookUrl: "",
   instagramUrl: "",
   androidAppUrl: "",

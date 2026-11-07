@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { branchScope, requireRole } from "@/lib/auth";
-import { bs, formatDate, ORDER_STATUS_LABEL, ORDER_TYPE_LABEL } from "@/lib/format";
+import { bs, formatDate, ORDER_STATUS_LABEL, ORDER_TYPE_LABEL, scheduleLabel } from "@/lib/format";
 import { OrderStatusBadge, PaymentBadge } from "@/components/StatusBadge";
 import { OrderActions } from "./OrderActions";
 
@@ -33,6 +33,11 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
             {formatDate(order.createdAt)} · {ORDER_TYPE_LABEL[order.type]}
             {order.table ? ` · Mesa ${order.table.number}` : ""}
           </p>
+          {order.scheduledFor && (
+            <p className="mt-1 inline-block rounded-full bg-accent-soft px-3 py-1 font-extrabold text-amber-900">
+              🕐 {scheduleLabel(order.type, order.scheduledFor)}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <OrderStatusBadge status={order.status} />
@@ -55,6 +60,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
               <li key={i.id} className="flex justify-between gap-3 py-2">
                 <div>
                   <p><b>{i.quantity}×</b> {i.productName}</p>
+                  {i.removed && <p className="font-extrabold uppercase text-red-700">Sin: {i.removed}</p>}
                   {i.notes && <p className="text-amber-800">{i.notes}</p>}
                 </div>
                 <span className="tabular-nums">{bs(i.lineTotal)}</span>

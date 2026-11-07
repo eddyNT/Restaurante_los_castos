@@ -14,7 +14,7 @@ Requisitos: Node.js 20 o superior y XAMPP (MySQL/MariaDB).
    ```bash
    npm install
    npx prisma migrate dev     # crea la base "restaurante" y sus tablas
-   npm run db:seed            # carga menú, mesas y usuarios de ejemplo
+   npm run db:seed            # carga menú y usuarios de ejemplo
    npm run dev                # http://localhost:3000
    ```
 
@@ -32,13 +32,12 @@ Para ver las tablas: phpMyAdmin (http://localhost/phpmyadmin) o `npm run db:stud
 
 ### Probar desde el celular en la misma red Wi-Fi
 
-`npm run dev -- -H 0.0.0.0` y abre `http://IP-DE-TU-PC:3000` en el celular (la IP sale con `ipconfig`). Así se prueban los QR de mesa. El botón «Descargar app» (instalar como PWA) necesita HTTPS, así que funciona en `localhost` o ya en el hosting.
+`npm run dev -- -H 0.0.0.0` y abre `http://IP-DE-TU-PC:3000` en el celular (la IP sale con `ipconfig`). El botón «Descargar app» (instalar como PWA) necesita HTTPS, así que funciona en `localhost` o ya en el hosting.
 
 ## Qué hace cada rol
 
 - **Cliente** (`/`, `/menu`, `/carrito`, `/checkout`, `/pedidos`, `/perfil`): menú por categorías, carrito, pedido para recoger o delivery, pago en efectivo o por QR con subida de comprobante y seguimiento del pedido.
-- **Invitado en mesa** (`/m/<token>`): escanea el QR de la mesa y pide sin registrarse.
-- **Admin** (`/admin`): tablero de pedidos que se actualiza solo y suena con cada pedido nuevo, verificación de pagos QR, estado de mesas y platos agotados.
+- **Admin** (`/admin`): tablero de pedidos que se actualiza solo y suena con cada pedido nuevo, verificación de pagos QR y platos agotados.
 - **Super Admin** (`/superadmin`): ventas, productos y precios, categorías, clientes con exportación a CSV, trabajadores, **QR de pago**, datos del local y horarios, y bitácora de cambios.
 
 ## Pasar a un hosting

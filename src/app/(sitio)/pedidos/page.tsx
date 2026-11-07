@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { bs, formatDate, ORDER_TYPE_LABEL } from "@/lib/format";
+import { bs, formatDate, ORDER_TYPE_LABEL, scheduleLabel } from "@/lib/format";
 import { OrderStatusBadge } from "@/components/StatusBadge";
 
 export const metadata = { title: "Mis pedidos" };
@@ -31,7 +31,7 @@ export default async function MyOrders() {
                 <div>
                   <p className="font-semibold">{o.code}</p>
                   <p className="text-sm text-muted">
-                    {formatDate(o.createdAt)} · {ORDER_TYPE_LABEL[o.type]} · {o._count.items} productos
+                    {formatDate(o.createdAt)} · {ORDER_TYPE_LABEL[o.type]}{o.scheduledFor ? ` (${scheduleLabel(o.type, o.scheduledFor)})` : ""} · {o._count.items} productos
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

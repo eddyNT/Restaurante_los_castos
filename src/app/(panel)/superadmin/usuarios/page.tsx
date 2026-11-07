@@ -22,7 +22,7 @@ export default async function UsersAdmin() {
       <div>
         <h1 className="text-2xl font-extrabold">Trabajadores</h1>
         <p className="text-sm text-muted">
-          Un <b>Admin</b> gestiona pedidos, mesas y platos agotados de sus sucursales. Un <b>Super Admin</b> tiene acceso total.
+          Un <b>Admin</b> gestiona pedidos y platos agotados de sus sucursales. Un <b>Super Admin</b> tiene acceso total.
         </p>
       </div>
       <div className="table-wrap">

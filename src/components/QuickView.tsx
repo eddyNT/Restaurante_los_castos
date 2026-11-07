@@ -6,18 +6,21 @@ import { useCart } from "@/store/cart";
 import { useUi } from "@/store/ui";
 import { ProductImage } from "./ProductImage";
 import { QuantityStepper } from "./QuantityStepper";
+import { IngredientPicker } from "./IngredientPicker";
 
-/** Ventana con el detalle del plato: cantidad, nota para cocina y botón de agregar. */
+/** Ventana con el detalle del plato: ingredientes, cantidad, nota para cocina y botón de agregar. */
 export function QuickView() {
   const { quickView: p, showProduct, notifyAdded } = useUi();
   const add = useCart((s) => s.add);
   const setNotes = useCart((s) => s.setNotes);
   const [qty, setQty] = useState(1);
   const [notes, setNoteText] = useState("");
+  const [removed, setRemoved] = useState<string[]>([]);
 
   useEffect(() => {
     setQty(1);
     setNoteText("");
+    setRemoved([]);
     if (!p) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && showProduct(null);
     document.addEventListener("keydown", onKey);
@@ -32,8 +35,8 @@ export function QuickView() {
 
   function addToCart() {
     if (!p) return;
-    add({ productId: p.id, name: p.name, price: p.price, imageUrl: p.imageUrl }, qty);
-    if (notes.trim()) setNotes(p.id, notes.trim());
+    const key = add({ productId: p.id, name: p.name, price: p.price, imageUrl: p.imageUrl, removed }, qty);
+    if (notes.trim()) setNotes(key, notes.trim());
     notifyAdded(`${qty} × ${p.name}`, p.imageUrl);
     showProduct(null);
   }
@@ -61,12 +64,13 @@ export function QuickView() {
           {p.description && <p className="text-muted">{p.description}</p>}
           {p.isAvailable ? (
             <>
+              <IngredientPicker ingredients={p.ingredients} removed={removed} onChange={setRemoved} />
               <div>
                 <label className="label" htmlFor="qv-notes">¿Algún detalle para cocina?</label>
                 <input
                   id="qv-notes"
                   className="input"
-                  placeholder="Ej.: sin cebolla, bien cocido…"
+                  placeholder="Ej.: bien cocido, poca sal…"
                   maxLength={120}
                   value={notes}
                   onChange={(e) => setNoteText(e.target.value)}

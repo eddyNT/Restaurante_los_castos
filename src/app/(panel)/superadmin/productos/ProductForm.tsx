@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { saveProduct } from "@/app/actions/superadmin";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ProductImage } from "@/components/ProductImage";
+import type { Ingredient } from "@/lib/menu";
+import { IngredientsEditor } from "./IngredientsEditor";
 
 type Product = {
   id: string;
@@ -14,6 +16,7 @@ type Product = {
   imageUrl: string | null;
   isVisible: boolean;
   isFeatured: boolean;
+  ingredients: Ingredient[];
 };
 
 export function ProductForm({ product, categories }: { product?: Product; categories: { id: string; name: string }[] }) {
@@ -38,6 +41,9 @@ export function ProductForm({ product, categories }: { product?: Product; catego
       <div>
         <label className="label" htmlFor="basePrice">Precio (Bs)</label>
         <input id="basePrice" name="basePrice" type="number" step="0.5" min="0.5" className="input" required defaultValue={product?.basePrice} />
+      </div>
+      <div className="md:col-span-2">
+        <IngredientsEditor initial={product?.ingredients ?? []} />
       </div>
       <div className="md:col-span-2">
         <label className="label" htmlFor="image">Foto (JPG, PNG o WEBP, máx. 3 MB)</label>

@@ -12,9 +12,11 @@ export async function uploadProof(_prev: FormState, form: FormData): Promise<For
   const code = String(form.get("code"));
   const order = await db.order.findUnique({ where: { code } });
   if (!order || !canViewOrder(order, await getSession())) return { error: "Pedido no encontrado." };
+  if (order.paymentMethod !== "QR") return { error: "Este pedido se paga en efectivo." };
+  if (order.status === "CANCELLED") return { error: "Este pedido fue cancelado." };
   if (order.paymentStatus === "VERIFIED") return { error: "Este pago ya fue verificado." };
   try {
-    const url = await saveImage(form.get("proof") as File | null);
+    const url = await saveImage(form.get("proof") as File | null, "proof");
     if (!url) return { error: "Elige la captura del comprobante." };
     const pending = await db.payment.findFirst({ where: { orderId: order.id, method: "QR" }, orderBy: { createdAt: "desc" } });
     if (pending && pending.status !== "VERIFIED") {

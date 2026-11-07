@@ -11,7 +11,8 @@ const HOME_BY_ROLE: Record<string, string> = { SUPER_ADMIN: "/superadmin", ADMIN
 
 function safeNext(next: FormDataEntryValue | null) {
   const n = typeof next === "string" ? next : "";
-  return n.startsWith("/") && !n.startsWith("//") ? n : null;
+  // Solo rutas internas: "//x" y "/\x" las interpreta el navegador como otro dominio
+  return n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : null;
 }
 
 export async function login(_prev: FormState, form: FormData): Promise<FormState> {

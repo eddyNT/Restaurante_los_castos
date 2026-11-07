@@ -36,13 +36,20 @@ export async function endSession() {
   store.delete(SESSION_COOKIE);
 }
 
-/** Exige sesión con alguno de los roles. SUPER_ADMIN siempre pasa. */
-export async function requireRole(...roles: Role[]): Promise<SessionPayload> {
+/** Sesión válida y de una cuenta que sigue activa. Usar en rutas API, donde no se puede redirigir. */
+export async function getActiveSession(): Promise<SessionPayload | null> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) return null;
   // Una cuenta desactivada pierde el acceso aunque su token siga vigente
   const user = await db.user.findUnique({ where: { id: session.sub }, select: { isActive: true, deletedAt: true } });
-  if (!user || !user.isActive || user.deletedAt) redirect("/login");
+  if (!user || !user.isActive || user.deletedAt) return null;
+  return session;
+}
+
+/** Exige sesión con alguno de los roles. SUPER_ADMIN siempre pasa. */
+export async function requireRole(...roles: Role[]): Promise<SessionPayload> {
+  const session = await getActiveSession();
+  if (!session) redirect("/login");
   if (session.role !== "SUPER_ADMIN" && !roles.includes(session.role)) redirect("/403");
   return session;
 }

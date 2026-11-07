@@ -13,7 +13,7 @@ export async function middleware(req: NextRequest) {
   const rule = RULES.find((r) => pathname === r.prefix || pathname.startsWith(r.prefix + "/"));
   if (!rule) return NextResponse.next();
 
-  // El seguimiento de un pedido concreto es accesible por su código (pedidos de invitado en mesa)
+  // El seguimiento de un pedido concreto es accesible por su código (la página revisa el permiso; quedan pedidos antiguos de invitado en mesa)
   if (rule.prefix === "/pedidos" && pathname !== "/pedidos") return NextResponse.next();
 
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);

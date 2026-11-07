@@ -103,7 +103,7 @@ export default async function Home() {
       {/* Cómo pedir: es una secuencia real */}
       <section className="grid gap-4 rounded-[2rem] bg-accent-soft p-6 sm:grid-cols-3 sm:p-10">
         {[
-          ["Elige", "Arma tu pedido desde el menú o escaneando el QR de tu mesa."],
+          ["Elige", "Arma tu pedido desde el menú, para recoger o con delivery."],
           ["Paga", "En efectivo o con el QR de nuestro banco, sin comisiones."],
           ["Disfruta", "Sigue el estado de tu pedido en vivo hasta que llegue."],
         ].map(([title, text], i) => (

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { bs } from "@/lib/format";
 import type { MenuProduct } from "@/lib/menu";
-import { useCart } from "@/store/cart";
+import { lineKey, useCart } from "@/store/cart";
 import { useUi } from "@/store/ui";
 import { ProductImage } from "./ProductImage";
 import { QuantityStepper } from "./QuantityStepper";
@@ -12,10 +12,15 @@ export function ProductCard({ product, large = false }: { product: MenuProduct; 
   const { showProduct, notifyAdded } = useUi();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const inCart = mounted ? items.find((i) => i.productId === product.id)?.quantity ?? 0 : 0;
+  // Si el plato tiene ingredientes que se pueden quitar, «Agregar» abre la ventana para elegirlos
+  const customizable = product.ingredients.some((i) => i.removable);
+  const plainKey = lineKey(product.id);
+  const inCart = mounted ? items.filter((i) => i.productId === product.id).reduce((n, i) => n + i.quantity, 0) : 0;
+  const plainInCart = mounted ? items.find((i) => i.key === plainKey)?.quantity ?? 0 : 0;
 
   function quickAdd(e: React.MouseEvent) {
     e.stopPropagation();
+    if (customizable) return showProduct(product);
     add({ productId: product.id, name: product.name, price: product.price, imageUrl: product.imageUrl });
     notifyAdded(product.name, product.imageUrl);
   }
@@ -49,16 +54,16 @@ export function ProductCard({ product, large = false }: { product: MenuProduct; 
         {product.description && <p className="line-clamp-2 text-sm text-muted">{product.description}</p>}
         <div className="mt-auto flex items-center justify-end pt-3">
           {product.isAvailable &&
-            (inCart > 0 ? (
+            (!customizable && plainInCart > 0 ? (
               <QuantityStepper
                 size="sm"
-                value={inCart}
-                onChange={(n) => setQuantity(product.id, n)}
+                value={plainInCart}
+                onChange={(n) => setQuantity(plainKey, n)}
                 label={`Cantidad de ${product.name}`}
               />
             ) : (
               <button type="button" onClick={quickAdd} className="btn-primary px-4 py-2">
-                <span className="text-lg leading-none">+</span> Agregar
+                <span className="text-lg leading-none">+</span> {customizable && inCart > 0 ? `Agregar otro (${inCart})` : "Agregar"}
               </button>
             ))}
         </div>

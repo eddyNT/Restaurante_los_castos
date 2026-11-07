@@ -6,7 +6,6 @@ import { PanelNav } from "./PanelNav";
 
 const ADMIN_LINKS = [
   { href: "/admin", label: "Pedidos" },
-  { href: "/admin/mesas", label: "Mesas" },
   { href: "/admin/disponibilidad", label: "Platos agotados" },
 ];
 

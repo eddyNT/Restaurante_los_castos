@@ -36,7 +36,19 @@ const productSchema = z.object({
   description: z.string().trim().max(1000).optional(),
   categoryId: z.string().min(1, "Elige una categoría."),
   basePrice: z.coerce.number().positive("El precio debe ser mayor a 0.").max(100000),
+  ingredients: z
+    .array(z.object({ name: z.string().trim().min(1).max(40), removable: z.boolean() }))
+    .max(15, "Máximo 15 ingredientes.")
+    .refine((l) => new Set(l.map((i) => i.name.toLowerCase())).size === l.length, "Hay ingredientes repetidos."),
 });
+
+function parseJson(v: FormDataEntryValue | null) {
+  try {
+    return JSON.parse(String(v ?? "[]"));
+  } catch {
+    return [];
+  }
+}
 
 export async function saveProduct(_prev: FormState, form: FormData): Promise<FormState> {
   const session = await sa();
@@ -46,6 +58,7 @@ export async function saveProduct(_prev: FormState, form: FormData): Promise<For
     description: form.get("description") || undefined,
     categoryId: form.get("categoryId"),
     basePrice: form.get("basePrice"),
+    ingredients: parseJson(form.get("ingredients")),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 

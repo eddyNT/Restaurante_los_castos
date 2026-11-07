@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getMainBranch, getSettings } from "@/lib/settings";
 import { DAY_NAMES } from "@/lib/format";
 
@@ -11,7 +10,6 @@ export async function SiteFooter() {
         <div>
           <p className="font-display text-3xl text-accent">{settings.restaurantName}</p>
           <p className="mt-1">{settings.tagline}</p>
-          <Link href="/app" className="btn-accent mt-5">📲 Descargar la app</Link>
         </div>
         <div className="text-sm">
           <p className="mb-3 font-display text-xl text-white">Horario</p>

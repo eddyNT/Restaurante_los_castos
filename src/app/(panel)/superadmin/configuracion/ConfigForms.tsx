@@ -16,6 +16,7 @@ const FIELDS: { key: keyof Settings; label: string; placeholder?: string }[] = [
   { key: "restaurantName", label: "Nombre del restaurante" },
   { key: "tagline", label: "Frase de bienvenida" },
   { key: "deliveryFee", label: "Costo de delivery (Bs)" },
+  { key: "prepMinutes", label: "Tiempo mínimo de preparación (minutos)", placeholder: "20" },
   { key: "facebookUrl", label: "Facebook", placeholder: "https://facebook.com/…" },
   { key: "instagramUrl", label: "Instagram", placeholder: "https://instagram.com/…" },
   { key: "androidAppUrl", label: "Enlace Google Play (cuando exista la app nativa)", placeholder: "https://play.google.com/…" },

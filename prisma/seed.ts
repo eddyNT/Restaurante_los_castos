@@ -1,34 +1,24 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
 import { existsSync } from "fs";
 
 const db = new PrismaClient();
 
-const MENU: Record<string, [string, string, number, boolean?][]> = {
+// Ingredientes: [nombre, se puede quitar]. Lo principal del plato no se puede quitar.
+type Item = [name: string, description: string, price: number, featured?: boolean, ingredients?: [string, boolean][]];
+
+const MENU: Record<string, Item[]> = {
   "Platos típicos": [
-    ["Silpancho", "Carne apanada sobre arroz y papa, con huevo frito y ensalada de tomate y cebolla.", 35, true],
-    ["Pique macho", "Carne de res, salchicha, papas fritas, locoto, cebolla y huevo. Para compartir.", 65, true],
-    ["Majadito", "Arroz con charque, plátano frito y huevo.", 30],
-    ["Chicharrón de cerdo", "Cerdo dorado en su jugo con mote y llajua.", 45],
-  ],
-  Sopas: [
-    ["Sopa de maní", "Sopa cremosa de maní con papas fritas y perejil.", 18, true],
-    ["Chairo", "Sopa paceña de chuño, carne y verduras.", 20],
-  ],
-  Parrilla: [
-    ["Churrasco", "300 g de carne a la parrilla con arroz, papa y ensalada.", 55],
-    ["Pollo a la parrilla", "Medio pollo marinado con guarniciones.", 42],
+    ["Pollo a la broaster", "Pollo crocante a la broaster con arroz y papas fritas.", 15, true, [["Pollo", false], ["Arroz", true], ["Papas fritas", true]]],
+    ["Pollo al espiedo", "Pollo dorado al espiedo con arroz, papa y fideo.", 16, true, [["Pollo", false], ["Arroz", true], ["Papa", true], ["Fideo", true]]],
+    ["Silpancho", "Carne apanada sobre arroz y papa, con huevo frito y ensalada.", 16, true, [["Carne apanada", false], ["Arroz", true], ["Papa", true], ["Huevo", true], ["Ensalada", true]]],
+    ["Asadito", "Carne de res asada con arroz, huevo y ensalada.", 15, true, [["Carne de res", false], ["Arroz", true], ["Huevo", true], ["Ensalada", true]]],
   ],
   Bebidas: [
     ["Mocochinchi", "Refresco tradicional de durazno deshidratado. Vaso de 500 ml.", 8],
     ["Jugo de tumbo", "Jugo natural. Vaso de 500 ml.", 12],
     ["Gaseosa 2 L", "Coca-Cola, Fanta o Sprite.", 18],
     ["Agua sin gas 600 ml", "Agua embotellada.", 6],
-  ],
-  Postres: [
-    ["Helado de canela", "Clásico helado de canela, dos bolas.", 10],
-    ["Flan casero", "Flan de leche con caramelo.", 12],
   ],
 };
 
@@ -53,7 +43,7 @@ async function main() {
       slug: "casa-matriz",
       address: "Av. Principal #123, zona centro",
       phone: "+591 3 3000000",
-      whatsapp: "+591 70000000",
+      whatsapp: "+591 68543387",
       email: "contacto@mirestaurante.bo",
     },
   });
@@ -99,24 +89,25 @@ async function main() {
       update: {},
       create: { name: catName, slug: slug(catName), sortOrder: order++ },
     });
-    for (const [name, description, price, featured] of items) {
+    for (const [name, description, price, featured, ingredients = []] of items) {
       // Foto de referencia en public/platos/<slug>.webp (solo si el producto aún no tiene foto)
       const photo = existsSync(`public/platos/${slug(name)}.webp`) ? `/platos/${slug(name)}.webp` : null;
       const product = await db.product.upsert({
         where: { slug: slug(name) },
         update: {},
-        create: { name, slug: slug(name), description, basePrice: price, isFeatured: !!featured, categoryId: cat.id, imageUrl: photo },
+        create: {
+          name,
+          slug: slug(name),
+          description,
+          basePrice: price,
+          isFeatured: !!featured,
+          categoryId: cat.id,
+          imageUrl: photo,
+          ingredients: ingredients.map(([n, removable]) => ({ name: n, removable })),
+        },
       });
       if (!product.imageUrl && photo) await db.product.update({ where: { id: product.id }, data: { imageUrl: photo } });
     }
-  }
-
-  for (let n = 1; n <= 6; n++) {
-    await db.diningTable.upsert({
-      where: { branchId_number: { branchId: branch.id, number: String(n) } },
-      update: {},
-      create: { branchId: branch.id, number: String(n), capacity: n <= 4 ? 4 : 6, qrToken: randomBytes(8).toString("hex") },
-    });
   }
 
   console.log("Datos de ejemplo cargados.");

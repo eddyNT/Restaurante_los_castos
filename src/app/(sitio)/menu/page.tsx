@@ -1,6 +1,5 @@
 import { getMenu } from "@/lib/menu";
 import { getMainBranch } from "@/lib/settings";
-import { TableBanner } from "@/components/TableBanner";
 import { MenuBrowser } from "./MenuBrowser";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +11,6 @@ export default async function MenuPage() {
 
   return (
     <div>
-      <TableBanner />
       <div className="mb-2">
         <p className="font-extrabold uppercase tracking-widest text-orange">Hecho al momento</p>
         <h1 className="text-5xl">Nuestro menú</h1>

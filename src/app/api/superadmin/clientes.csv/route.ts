@@ -1,10 +1,15 @@
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+// Un texto que empieza con = + - @ (o tab/retorno) Excel lo ejecuta como fórmula: se antepone ' para que quede como texto
+const cell = (v: unknown) => {
+  let s = String(v ?? "");
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return `"${s.replace(/"/g, '""')}"`;
+};
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (session?.role !== "SUPER_ADMIN") return new Response("No autorizado", { status: 401 });
 
   const customers = await db.user.findMany({

@@ -3,14 +3,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { bs } from "@/lib/format";
-import { cartCount, cartTotal, useCart } from "@/store/cart";
+import { cartCount, cartTotal, removedLabel, useCart } from "@/store/cart";
 import { useUi } from "@/store/ui";
 import { ProductImage } from "./ProductImage";
 import { QuantityStepper } from "./QuantityStepper";
 
 /** Carrito lateral, barra flotante con el total y avisos de «agregado». */
 export function CartDrawer() {
-  const { items, setQuantity, remove, tableNumber } = useCart();
+  const { items, setQuantity, remove } = useCart();
   const { cartOpen, closeCart, openCart, toasts } = useUi();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -59,7 +59,7 @@ export function CartDrawer() {
           <button className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={closeCart} aria-label="Cerrar carrito" />
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-md animate-slide-in flex-col bg-canvas shadow-2xl">
             <header className="flex items-center justify-between bg-brand px-5 py-4 text-white">
-              <h2 className="text-2xl">Tu pedido {tableNumber ? `· Mesa ${tableNumber}` : ""}</h2>
+              <h2 className="text-2xl">Tu pedido</h2>
               <button onClick={closeCart} className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-xl" aria-label="Cerrar">×</button>
             </header>
             <div className="stripe h-1.5" />
@@ -73,18 +73,19 @@ export function CartDrawer() {
               <>
                 <ul className="flex-1 space-y-3 overflow-y-auto p-4">
                   {items.map((i) => (
-                    <li key={i.productId} className="flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-line">
+                    <li key={i.key} className="flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-line">
                       <ProductImage src={i.imageUrl} name={i.name} className="h-20 w-20 shrink-0 rounded-xl text-lg" />
                       <div className="flex min-w-0 flex-1 flex-col">
                         <div className="flex justify-between gap-2">
                           <p className="font-extrabold leading-tight">{i.name}</p>
-                          <button onClick={() => remove(i.productId)} className="text-xs font-bold text-muted hover:text-brand" aria-label={`Quitar ${i.name}`}>
+                          <button onClick={() => remove(i.key)} className="text-xs font-bold text-muted hover:text-brand" aria-label={`Quitar ${i.name}`}>
                             Quitar
                           </button>
                         </div>
+                        {i.removed.length > 0 && <p className="text-xs font-bold text-brand">{removedLabel(i.removed)}</p>}
                         {i.notes && <p className="truncate text-xs text-orange">{i.notes}</p>}
                         <div className="mt-auto flex items-center justify-between pt-2">
-                          <QuantityStepper size="sm" value={i.quantity} onChange={(n) => setQuantity(i.productId, n)} label={`Cantidad de ${i.name}`} />
+                          <QuantityStepper size="sm" value={i.quantity} onChange={(n) => setQuantity(i.key, n)} label={`Cantidad de ${i.name}`} />
                           <span className="font-display text-lg tabular-nums">{bs(i.price * i.quantity)}</span>
                         </div>
                       </div>

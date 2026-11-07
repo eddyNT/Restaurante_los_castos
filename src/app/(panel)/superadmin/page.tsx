@@ -16,13 +16,17 @@ export default async function SuperDashboard() {
   await requireRole("SUPER_ADMIN");
   const today = startOfDayBolivia();
   const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 4));
-  const valid = { status: { not: "CANCELLED" as const } };
+  // Venta = dinero cobrado: QR verificado, o efectivo de un pedido ya entregado
+  const valid = {
+    status: { not: "CANCELLED" as const },
+    OR: [{ paymentStatus: "VERIFIED" as const }, { paymentMethod: "CASH" as const, status: "DELIVERED" as const }],
+  };
 
   const [dayAgg, monthAgg, pendingPays, customers, top, last7] = await Promise.all([
     db.order.aggregate({ where: { ...valid, createdAt: { gte: today } }, _sum: { total: true }, _count: true }),
     db.order.aggregate({ where: { ...valid, createdAt: { gte: monthStart } }, _sum: { total: true }, _count: true }),
     db.order.count({ where: { paymentMethod: "QR", paymentStatus: "PENDING", status: { not: "CANCELLED" } } }),
-    db.user.count({ where: { role: { code: "CUSTOMER" } } }),
+    db.user.count({ where: { role: { code: "CUSTOMER" }, deletedAt: null } }),
     db.orderItem.groupBy({
       by: ["productName"],
       where: { order: { ...valid, createdAt: { gte: monthStart } } },
@@ -79,7 +83,7 @@ export default async function SuperDashboard() {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-xs text-muted">Montos en bolivianos, sin pedidos cancelados.</p>
+          <p className="mt-2 text-xs text-muted">Montos en bolivianos. Solo pedidos cobrados: QR verificado o efectivo entregado.</p>
         </section>
         <section className="card p-5">
           <h2 className="mb-3 font-display font-semibold">Más vendidos del mes</h2>

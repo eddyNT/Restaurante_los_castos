@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { toMenuProduct } from "./menu";
 import { getMainBranch, getSettings } from "./settings";
+import { pickupSlots, slotToDate } from "./hours";
 import { isStaff } from "./auth";
 import type { SessionPayload } from "./session";
 
@@ -14,13 +15,15 @@ export const orderInput = z.object({
       z.object({
         productId: z.string().min(1),
         quantity: z.number().int().min(1).max(99),
+        removed: z.array(z.string().max(40)).max(15).optional(),
         notes: z.string().max(120).optional(),
       }),
     )
     .min(1, "El carrito está vacío."),
-  type: z.enum(["DINE_IN", "TAKEAWAY", "DELIVERY"]),
+  type: z.enum(["TAKEAWAY", "DINE_IN", "DELIVERY"]),
+  /** «2026-10-30 13:30»: hora de recojo (para llevar) o de llegada (en mesa), en hora de Bolivia. */
+  scheduledTime: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/).optional(),
   paymentMethod: z.enum(["CASH", "QR"]),
-  tableToken: z.string().optional().nullable(),
   customerName: z.string().trim().min(2, "Escribe tu nombre."),
   customerPhone: z.string().trim().min(7, "Escribe un celular válido."),
   deliveryAddress: z.string().trim().max(500).optional(),
@@ -41,19 +44,21 @@ export async function createOrder(input: OrderInput, session: SessionPayload | n
   const branch = await getMainBranch();
   const settings = await getSettings();
 
-  let tableId: string | null = null;
-  let type = input.type;
-  if (input.tableToken) {
-    const table = await db.diningTable.findUnique({ where: { qrToken: input.tableToken } });
-    if (!table || table.branchId !== branch.id) throw new OrderError("La mesa no es válida. Vuelve a escanear el QR.");
-    tableId = table.id;
-    type = "DINE_IN";
-  } else if (!session) {
-    throw new OrderError("Ingresa a tu cuenta para hacer un pedido.");
-  } else if (type === "DINE_IN") {
-    throw new OrderError("Para pedir en mesa escanea el QR de tu mesa.");
-  }
+  if (!session) throw new OrderError("Ingresa a tu cuenta para hacer un pedido.");
+  const type = input.type;
   if (type === "DELIVERY" && !input.deliveryAddress) throw new OrderError("Escribe la dirección de entrega.");
+
+  // Para llevar y en mesa: la hora debe ser uno de los turnos que siguen disponibles
+  let scheduledFor: Date | null = null;
+  if (type !== "DELIVERY") {
+    if (!input.scheduledTime) throw new OrderError(type === "DINE_IN" ? "Elige a qué hora llegas." : "Elige a qué hora pasas a recoger.");
+    const day = pickupSlots(branch.hours, Number(settings.prepMinutes) || 0);
+    if (!day) throw new OrderError("No hay horarios disponibles esta semana para recoger o comer en el local.");
+    if (!day.slots.some((s) => s.value === input.scheduledTime)) {
+      throw new OrderError(`Esa hora ya no está disponible. La más temprana es ${day.label.toLowerCase()} a las ${day.slots[0].time}.`);
+    }
+    scheduledFor = slotToDate(input.scheduledTime);
+  }
 
   let paymentQrId: string | null = null;
   if (input.paymentMethod === "QR") {
@@ -73,6 +78,12 @@ export async function createOrder(input: OrderInput, session: SessionPayload | n
     const p = byId.get(i.productId);
     if (!p) throw new OrderError("Un producto de tu carrito ya no está en el menú. Revisa el carrito.");
     if (!p.isAvailable) throw new OrderError(`${p.name} está agotado hoy. Quítalo del carrito para continuar.`);
+    // Solo se puede quitar lo que el menú marca como removible; quitar algo no cambia el precio
+    const removable = new Set(p.ingredients.filter((g) => g.removable).map((g) => g.name));
+    const removed = [...new Set(i.removed ?? [])];
+    if (removed.some((r) => !removable.has(r))) {
+      throw new OrderError(`Los ingredientes de ${p.name} cambiaron. Quítalo del carrito y vuelve a agregarlo.`);
+    }
     const unit = new Prisma.Decimal(p.price);
     return {
       productId: p.id,
@@ -81,6 +92,7 @@ export async function createOrder(input: OrderInput, session: SessionPayload | n
       quantity: i.quantity,
       lineTotal: unit.mul(i.quantity),
       notes: i.notes || null,
+      removed: removed.length ? removed.join(", ") : null,
     };
   });
 
@@ -88,33 +100,30 @@ export async function createOrder(input: OrderInput, session: SessionPayload | n
   const deliveryFee = new Prisma.Decimal(type === "DELIVERY" ? Number(settings.deliveryFee) || 0 : 0);
   const total = subtotal.add(deliveryFee);
 
-  return db.$transaction(async (tx) => {
-    const order = await tx.order.create({
-      data: {
-        code: newCode(),
-        branchId: branch.id,
-        userId: session?.sub ?? null,
-        tableId,
-        type,
-        paymentMethod: input.paymentMethod,
-        subtotal,
-        deliveryFee,
-        total,
-        customerName: input.customerName,
-        customerPhone: input.customerPhone,
-        deliveryAddress: type === "DELIVERY" ? input.deliveryAddress : null,
-        notes: input.notes || null,
-        items: { create: lines },
-        history: { create: { status: "PENDING", changedBy: session?.sub ?? null } },
-        payments: { create: { method: input.paymentMethod, amount: total, paymentQrId } },
-      },
-    });
-    if (tableId) await tx.diningTable.update({ where: { id: tableId }, data: { status: "OCCUPIED" } });
-    return order;
+  // Un solo create anidado: pedido, líneas, historial y pago se guardan juntos o no se guarda nada
+  return db.order.create({
+    data: {
+      code: newCode(),
+      branchId: branch.id,
+      userId: session.sub,
+      type,
+      paymentMethod: input.paymentMethod,
+      subtotal,
+      deliveryFee,
+      total,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      deliveryAddress: type === "DELIVERY" ? input.deliveryAddress : null,
+      notes: input.notes || null,
+      scheduledFor,
+      items: { create: lines },
+      history: { create: { status: "PENDING", changedBy: session.sub } },
+      payments: { create: { method: input.paymentMethod, amount: total, paymentQrId } },
+    },
   });
 }
 
-/** Un pedido con cuenta solo lo ve su dueño o el personal; uno de invitado, quien tenga el código. */
+/** Un pedido con cuenta solo lo ve su dueño o el personal; uno de invitado (pedidos antiguos en mesa), quien tenga el código. */
 export function canViewOrder(order: { userId: string | null; branchId: string }, session: SessionPayload | null) {
   if (!order.userId) return true;
   if (!session) return false;

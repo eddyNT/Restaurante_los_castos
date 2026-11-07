@@ -2,10 +2,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { cartTotal, useCart } from "@/store/cart";
+import { cartTotal, removedLabel, useCart } from "@/store/cart";
 import { bs } from "@/lib/format";
+import type { SlotDay } from "@/lib/hours";
 
 type Address = { id: string; label: string; line: string; reference: string | null };
+type OrderType = "TAKEAWAY" | "DINE_IN" | "DELIVERY";
 
 export function CheckoutForm(props: {
   loggedIn: boolean;
@@ -15,11 +17,18 @@ export function CheckoutForm(props: {
   deliveryFee: number;
   qrAvailable: boolean;
   status: { open: boolean; label: string };
+  /** Turnos para recoger o llegar: hoy, o el siguiente día abierto si hoy ya no quedan. */
+  slotDay: SlotDay | null;
 }) {
   const router = useRouter();
-  const { items, tableToken, tableNumber, clear } = useCart();
+  const { items, clear } = useCart();
   const [mounted, setMounted] = useState(false);
-  const [type, setType] = useState<"TAKEAWAY" | "DELIVERY">("TAKEAWAY");
+  const slots = props.slotDay?.slots ?? [];
+  const canSchedule = slots.length > 0;
+  const [type, setType] = useState<OrderType>(canSchedule ? "TAKEAWAY" : "DELIVERY");
+  const [time, setTime] = useState(slots[0]?.value ?? "");
+  const timeLabel = slots.find((s) => s.value === time)?.time ?? "";
+  const dayLabel = props.slotDay?.label ?? "";
   const [payment, setPayment] = useState<"CASH" | "QR">(props.qrAvailable ? "QR" : "CASH");
   const [name, setName] = useState(props.defaultName);
   const [phone, setPhone] = useState(props.defaultPhone);
@@ -39,7 +48,7 @@ export function CheckoutForm(props: {
     );
   }
 
-  if (!tableToken && !props.loggedIn) {
+  if (!props.loggedIn) {
     return (
       <div className="card p-8 text-center">
         <p className="text-lg font-semibold">Ingresa para terminar tu pedido</p>
@@ -52,9 +61,8 @@ export function CheckoutForm(props: {
     );
   }
 
-  const isTable = !!tableToken;
   const subtotal = cartTotal(items);
-  const fee = !isTable && type === "DELIVERY" ? props.deliveryFee : 0;
+  const fee = type === "DELIVERY" ? props.deliveryFee : 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,10 +72,10 @@ export function CheckoutForm(props: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, notes: i.notes || undefined })),
-        type: isTable ? "DINE_IN" : type,
+        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, removed: i.removed, notes: i.notes || undefined })),
+        type,
+        scheduledTime: type === "DELIVERY" ? undefined : time,
         paymentMethod: payment,
-        tableToken,
         customerName: name,
         customerPhone: phone,
         deliveryAddress: type === "DELIVERY" ? address : undefined,
@@ -95,22 +103,44 @@ export function CheckoutForm(props: {
 
         <fieldset className="card space-y-3 p-5">
           <legend className="px-1 font-display font-semibold">¿Cómo lo quieres?</legend>
-          {isTable ? (
-            <p>Para servir en la <b>mesa {tableNumber}</b>.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {(["TAKEAWAY", "DELIVERY"] as const).map((t) => (
-                <label key={t} className={`card cursor-pointer p-3 ${type === t ? "border-brand ring-2 ring-brand/20" : ""}`}>
-                  <input type="radio" name="type" className="sr-only" checked={type === t} onChange={() => setType(t)} />
-                  <span className="font-semibold">{t === "TAKEAWAY" ? "Recojo en local" : "Delivery"}</span>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {TYPES.map(({ t, icon, title, sub }) => {
+              const disabled = t !== "DELIVERY" && !canSchedule;
+              return (
+                <label
+                  key={t}
+                  className={`card p-3 ${disabled ? "opacity-50" : "cursor-pointer"} ${type === t ? "border-brand ring-2 ring-brand/20" : ""}`}
+                >
+                  <input type="radio" name="type" className="sr-only" disabled={disabled} checked={type === t} onChange={() => setType(t)} />
+                  <span className="font-semibold">{icon} {title}</span>
                   <span className="block text-sm text-muted">
-                    {t === "TAKEAWAY" ? "Sin costo" : `+ ${bs(props.deliveryFee)}`}
+                    {disabled ? "Sin horarios disponibles" : t === "DELIVERY" ? `${sub} · + ${bs(props.deliveryFee)}` : sub}
                   </span>
                 </label>
-              ))}
+              );
+            })}
+          </div>
+          {type !== "DELIVERY" && canSchedule && (
+            <div>
+              {dayLabel !== "Hoy" && (
+                <p className="mb-2 rounded-lg bg-accent-soft px-3 py-2 text-sm">
+                  Hoy ya no quedan horarios. Puedes programarlo para <b>{dayLabel.toLowerCase()}</b>.
+                </p>
+              )}
+              <label className="label" htmlFor="time">
+                {type === "DINE_IN" ? "¿A qué hora llegas?" : "¿A qué hora pasas a recoger?"} ({dayLabel})
+              </label>
+              <select id="time" className="input max-w-xs" required value={time} onChange={(e) => setTime(e.target.value)}>
+                {slots.map((s, i) => (
+                  <option key={s.value} value={s.value}>{i === 0 ? `${s.time} (lo más pronto)` : s.time}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted">
+                {type === "DINE_IN" ? "Tendremos tu pedido listo para servir cuando llegues." : "Tu pedido estará listo a esa hora."}
+              </p>
             </div>
           )}
-          {!isTable && type === "DELIVERY" && (
+          {type === "DELIVERY" && (
             <div>
               {props.addresses.length > 0 && (
                 <select className="input mb-2" onChange={(e) => setAddress(e.target.value)} aria-label="Direcciones guardadas">
@@ -165,12 +195,19 @@ export function CheckoutForm(props: {
         <p className="font-display font-semibold">Resumen</p>
         <ul className="space-y-1 text-sm">
           {items.map((i) => (
-            <li key={i.productId} className="flex justify-between gap-2">
-              <span>{i.quantity} × {i.name}</span>
+            <li key={i.key} className="flex justify-between gap-2">
+              <span>
+                {i.quantity} × {i.name}
+                {i.removed.length > 0 && <span className="block text-xs font-bold text-brand">{removedLabel(i.removed)}</span>}
+              </span>
               <span className="tabular-nums">{bs(i.price * i.quantity)}</span>
             </li>
           ))}
         </ul>
+        <p className="text-sm font-semibold">
+          {TYPES.find((x) => x.t === type)?.icon} {TYPES.find((x) => x.t === type)?.title}
+          {type !== "DELIVERY" && timeLabel && ` · ${type === "DINE_IN" ? "llegas" : "recoges"} ${dayLabel.toLowerCase()} a las ${timeLabel}`}
+        </p>
         <div className="space-y-1 border-t border-line pt-3 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{bs(subtotal)}</span></div>
           {fee > 0 && <div className="flex justify-between"><span>Delivery</span><span className="tabular-nums">{bs(fee)}</span></div>}
@@ -184,6 +221,12 @@ export function CheckoutForm(props: {
     </form>
   );
 }
+
+const TYPES: { t: OrderType; icon: string; title: string; sub: string }[] = [
+  { t: "TAKEAWAY", icon: "🥡", title: "Para llevar", sub: "Recoges en el local" },
+  { t: "DINE_IN", icon: "🍽️", title: "En mesa", sub: "Comes en el local" },
+  { t: "DELIVERY", icon: "🏠", title: "Para casa", sub: "Delivery" },
+];
 
 function formatAddress(a: Address) {
   return a.reference ? `${a.line} (${a.reference})` : a.line;

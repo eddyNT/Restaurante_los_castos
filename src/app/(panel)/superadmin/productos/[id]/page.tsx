@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
+import { parseIngredients } from "@/lib/menu";
 import { ProductForm } from "../ProductForm";
 
 export const metadata = { title: "Editar producto" };
@@ -27,6 +28,7 @@ export default async function EditProduct({ params }: { params: Promise<{ id: st
           imageUrl: product.imageUrl,
           isVisible: product.isVisible,
           isFeatured: product.isFeatured,
+          ingredients: parseIngredients(product.ingredients),
         }}
       />
     </div>
